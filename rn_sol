@@ -1,13 +1,4 @@
 #!/usr/bin/env python
-#
-# This program is free software; you can redistribute it and/or modify it
-# under the terms of the GNU General Public License as published by the
-# Free Software Foundation; either version 2 of the License, or (at your
-# option) any later version.  See http://www.gnu.org/copyleft/gpl.html for
-# the full text of the license.
-
-# getbug.py: Simple demonstration of connecting to bugzilla, fetching
-#            a bug, and printing some details.
 
 from __future__ import print_function
 
@@ -15,31 +6,36 @@ import pprint
 
 import bugzilla
 
-# public test instance of bugzilla.redhat.com. It's okay to make changes
-URL = "partner-bugzilla.redhat.com"
+def bz_in_rn (bzapi, version):
+  # This function takes the bzapi, the version in format '11.6.x' and returns 
+  # a list of all BZ included in the PD release note on ASKF5.
+  # eg: 11.6.x include TMOS v11.6.1, TMOS v11.6.0, TMOS v11.6.1 HF-TMOS, TMOS v11.6.0 HF-APM, ...
+  # The conditons are:
+  #   -Version = $version
+  #   -Release Note = Yes / or Parent Bug has Release Note = Yes
+  #   -Type = Defect/Crash/Performance/Regression/Usability
+  
+  # Need a better way to get the versions; maybe a regular expression... Following list is for 11.6.1 as of 08/17/16
+  version_list = ['TMOS v11.6.0 ', 'TMOS v11.6.0 HF-APM', 'TMOS v11.6.0 HF-ASM', 'TMOS v11.6.0 HF-PLATFORM', 'TMOS v11.6.0 HF-TMOS',
+    'TMOS v11.6.0 HF1', 'TMOS v11.6.0 HF2', 'TMOS v11.6.0 HF3', 'TMOS v11.6.0 HF4', 'TMOS v11.6.0 HF5', 'TMOS v11.6.0 HF6', 'TMOS v11.6.0 HF7',
+    'TMOS v11.6.0 HF8', 'TMOS v11.6.1 ', 'TMOS v11.6.1 HF-APM', 'TMOS v11.6.1 HF-ASM', 'TMOS v11.6.1 HF-PLATFORM', 'TMOS v11.6.1 HF-TMOS',
+    'TMOS v11.6.1 HF1']
+  # Type of bz expected in the RN; with the intentional omission of 'Vuneraliblity'
+  type_list = ['Defect', 'Crash', 'Performance', 'Regression', 'Usability']
+  
+  # Query for all bz with version_list and type_list; return only include_fields
+  query_bz = bzapi.build_query(
+    classification='TMOS',
+    product='BIG-IP',
+    cf_type=type_list,
+    version=version_list,
+    include_fields=["id", "bug_status", "resolution", "cf_type", "bug_severity", "summary"])
 
-bzapi = bugzilla.Bugzilla(URL)
-
-# getbug() is just a simple wrapper around getbugs(), which takes a list
-# IDs, if you need to fetch multiple
-#
-# Example bug: https://partner-bugzilla.redhat.com/show_bug.cgi?id=427301
-bug = bzapi.getbug(427301)
-print("Fetched bug #%s:" % bug.id)
-print("  Product   = %s" % bug.product)
-print("  Component = %s" % bug.component)
-print("  Status    = %s" % bug.status)
-print("  Resolution= %s" % bug.resolution)
-print("  Summary   = %s" % bug.summary)
-
-# Just check dir(bug) for other attributes, or check upstream bugzilla
-# Bug.get docs for field names:
-# https://bugzilla.readthedocs.io/en/latest/api/core/v1/bug.html#get-bug
-
-# comments must be fetched separately on stock bugzilla. this just returns
-# a raw dict with all the info.
-comments = bug.getcomments()
-print("\nLast comment data:\n%s" % pprint.pformat(comments[-1]))
-
-# getcomments is just a wrapper around bzapi.get_comments(), which can be
-# used for bulk comments fetching
+  # Performing the Query 
+  #t1 = time.time()
+  bz_in_rn_list = bzapi.query(query_bz)
+  return bz_in_rn_list
+  #t2 = time.time()
+  #print("Found %d bugs with our query" % len(bugs))
+  #print("Query processing time: %s" % (t2 - t1))
+  
