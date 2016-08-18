@@ -15,6 +15,11 @@ def bz_in_rn (bzapi, version):
   #   -Release Note = Yes / or Parent Bug has Release Note = Yes
   #   -Type = Defect/Crash/Performance/Regression/Usability
   
+  # Athentication
+  if not bzapi.logged_in:
+    print("This requires cached login credentials")
+    bzapi.interactive_login()
+  
   # Need a better way to get the versions; maybe a regular expression... Following list is for 11.6.1 as of 08/17/16
   version_list = ['TMOS v11.6.0 ', 'TMOS v11.6.0 HF-APM', 'TMOS v11.6.0 HF-ASM', 'TMOS v11.6.0 HF-PLATFORM', 'TMOS v11.6.0 HF-TMOS',
     'TMOS v11.6.0 HF1', 'TMOS v11.6.0 HF2', 'TMOS v11.6.0 HF3', 'TMOS v11.6.0 HF4', 'TMOS v11.6.0 HF5', 'TMOS v11.6.0 HF6', 'TMOS v11.6.0 HF7',
