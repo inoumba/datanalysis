@@ -1,0 +1,10 @@
+#!/usr/bin/env python
+
+import bugzilla
+
+# Creation of the client API to be used in other modules
+
+def client_api():
+  bz_url = 'bugzilla.olympus.f5net.com'
+  bz_api = bugzilla.Bugzilla(url=bz_url, sslverify=False)
+  return bz_api
