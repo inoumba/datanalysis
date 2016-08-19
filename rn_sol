@@ -6,7 +6,7 @@ import pprint
 
 import bugzilla
 
-def bz_in_rn (bzapi, version):
+def bz_in_rn (bz_api, version):
   # This function takes the bzapi, the version in format '11.6.x' and returns 
   # a list of all BZ included in the PD release note on ASKF5.
   # eg: 11.6.x include TMOS v11.6.1, TMOS v11.6.0, TMOS v11.6.1 HF-TMOS, TMOS v11.6.0 HF-APM, ...
@@ -15,10 +15,10 @@ def bz_in_rn (bzapi, version):
   #   -Release Note = Yes / or Parent Bug has Release Note = Yes
   #   -Type = Defect/Crash/Performance/Regression/Usability
   
-  # Athentication
-  if not bzapi.logged_in:
-    print("This requires cached login credentials")
-    bzapi.interactive_login()
+  # Login to bugzilla
+  bz_user = 'xxxxx@xx.com'
+  bz_pass = 'xxxxxx'
+  bz_api.login(bz_user, bz_pass)
   
   # Need a better way to get the versions; maybe a regular expression... Following list is for 11.6.1 as of 08/17/16
   version_list = ['TMOS v11.6.0 ', 'TMOS v11.6.0 HF-APM', 'TMOS v11.6.0 HF-ASM', 'TMOS v11.6.0 HF-PLATFORM', 'TMOS v11.6.0 HF-TMOS',
@@ -29,7 +29,7 @@ def bz_in_rn (bzapi, version):
   type_list = ['Defect', 'Crash', 'Performance', 'Regression', 'Usability']
   
   # Query for all bz with version_list and type_list; return only include_fields
-  query_bz = bzapi.build_query(
+  query_bz = bz_api.build_query(
     classification='TMOS',
     product='BIG-IP',
     cf_type=type_list,
@@ -38,7 +38,7 @@ def bz_in_rn (bzapi, version):
 
   # Performing the Query 
   #t1 = time.time()
-  bz_in_rn_list = bzapi.query(query_bz)
+  bz_in_rn_list = bz_api.query(query_bz)
   return bz_in_rn_list
   #t2 = time.time()
   #print("Found %d bugs with our query" % len(bugs))
