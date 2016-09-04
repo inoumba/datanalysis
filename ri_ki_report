@@ -1,0 +1,155 @@
+#!/usr/bin/env python
+
+from __future__ import print_function
+import sys
+import time
+import datetime
+import dateutil.parser
+
+import bugzilla
+
+import xlsxwriter
+
+
+
+def bz_subcase_count(subcase_string):                       
+    # count the # of subcases by spliting bugzilla's subcase list string
+    if len(subcase_string.strip()):
+        count = len(subcase_string.split(','))
+    else:
+        count = 0
+        
+    return count
+
+def bz_age_count(bug_date):
+    # This function takes the Bz creation date and return the number of days since creation   
+    bz_date = dateutil.parser.parse(str(bug_date))
+    bz_date = bz_date.date()
+    today = datetime.date.today()
+    diff_date = today - bz_date
+    count = str(diff_date).rsplit(',', 1)[0]
+    
+    return count
+    
+def bz_cmid_string(bug_block_list, bz_api):
+    # This function takes the Bz 'Block' field and the clien API as inputs
+    # and verify if Bz in the list is a CMID; then return a list of CMIDs 
+    list_block = bug_block_list
+    list_cmid = []
+    for bz in list_block:
+        block_bz_handle = bz_api.getbug(bz)
+        if (block_bz_handle.classification == "Content Management"):
+            list_cmid.append(bz)
+    string = str(list_cmid).strip('[]')        
+    
+    return string
+
+def gen_excel_report(ri_kip_dict):
+
+    # Writing the values of the Dict into an Excell file
+    ri_kip_report = "ri_kip_report" + "_" + time.strftime("%Y%m%d-%H%M%S") + "." + "xlsx"
+ 
+    workbook = xlsxwriter.Workbook(ri_kip_report)
+    worksheet = workbook.add_worksheet()
+
+    # Writing the Header of the Excel file
+    worksheet.set_column('A:A', 12)
+    worksheet.set_column('B:B', 12)
+    worksheet.set_column('C:C', 12)
+    worksheet.set_column('D:D', 12)
+    worksheet.set_column('E:E', 12)
+    worksheet.set_column('F:F', 12)
+    bold = workbook.add_format({'bold': True})
+    worksheet.write('A1', 'Bug ID', bold)
+    worksheet.write('B1', 'Version', bold)
+    worksheet.write('C1', 'Subcase Count', bold)
+    worksheet.write('D1', 'Age', bold)
+    worksheet.write('E1', 'Severity', bold)
+    worksheet.write('F1', 'CMID', bold)
+    worksheet.write('G1', 'Article', bold)
+
+    row = 0
+    col = 0
+
+    for key in ri_kip_dict.keys():
+        row += 1
+        worksheet.write(row, col, key)
+        for item in ri_kip_dict[key]:
+            col += 1
+            worksheet.write(row, col, item)
+        col = 0    
+    workbook.close()
+
+def api_query(bz_api):
+    # this function setup the query     
+    """
+    # Need a better way to get the versions; maybe a regular expression... Following list is for 11.6.1 as of 08/17/16
+    version_list = ['TMOS v11.6.0 ', 'TMOS v11.6.0 HF-APM', 'TMOS v11.6.0 HF-ASM', 'TMOS v11.6.0 HF-PLATFORM', 'TMOS v11.6.0 HF-TMOS',
+        'TMOS v11.6.0 HF1', 'TMOS v11.6.0 HF2', 'TMOS v11.6.0 HF3', 'TMOS v11.6.0 HF4', 'TMOS v11.6.0 HF5', 'TMOS v11.6.0 HF6', 'TMOS v11.6.0 HF7',
+        'TMOS v11.6.0 HF8', 'TMOS v11.6.1 ', 'TMOS v11.6.1 HF-APM', 'TMOS v11.6.1 HF-ASM', 'TMOS v11.6.1 HF-PLATFORM', 'TMOS v11.6.1 HF-TMOS',
+        'TMOS v11.6.1 HF1', 'TMOS v12.0.0 ', 'TMOS v12.0.0 HF-APM', 'TMOS v12.0.0 HF-ASM', 'TMOS v12.0.0 HF-PLATFORM', 'TMOS v12.0.0 HF-TMOS',
+        'TMOS v12.0.0 HF1', 'TMOS v12.0.0 HF2', 'TMOS v12.0.0 HF3', 'TMOS v12.1.0 ', 'TMOS v12.1.0 HF-APM', 'TMOS v12.1.0 HF-ASM', 'TMOS v12.1.0 HF-PLATFORM', 'TMOS v12.1.0 HF-TMOS',
+        'TMOS v12.1.0 HF1', 'TMOS v12.1.1', 'TMOS v12.1.1 HF-APM', 'TMOS v12.1.1 HF-ASM', 'TMOS v12.1.1 HF-PLATFORM', 'TMOS v12.1.1 HF-TMOS']
+    """
+    version_list = ['TMOS v12.1.1']
+
+    # Type of bz expected in the RN; with the intentional omission of 'Vuneraliblity'
+    type_list = ['Defect', 'Crash', 'Performance', 'Regression', 'Usability']
+    status_list = ['New', 'Accepted', 'Reopened', 'Verified', 'Test', 'Resolved', 'Not Verified' ]
+ 
+    # Query for all bz with version_list and type_list; ( Unfortunately include_fields does not seems to work) 
+    query_bz = {'product': 'BIG-IP',
+        'version': version_list,
+        'cf_type': type_list,
+        'bug_status': status_list}
+
+    query_results = bz_api.query(query_bz)
+    
+    return query_results
+
+def main():
+    # api instanciation and Connection 
+    bz_user = '_svcactiveregressiontdf@f5.com'
+    bz_pass = 'R3gre551on'
+    bz_url = 'bugzilla.olympus.f5net.com'
+    bz_api = bugzilla.Bugzilla(url=bz_url, sslverify=False)
+    bz_api.login(bz_user, bz_pass)
+    query_results = api_query(bz_api)
+    """
+    if BugAlias exist #It is assumed all BZ in the RI and with published Sol have BugAlias (Very old versions might not have an Alias) 
+       if the Bug has a parent (cf_parentbugid)
+         if parentbugid has Release note set to 'Yes'  -->  Add BugAlias with attributes to the list 
+       else
+       if Release Note set to 'Yes' -->  Add BugAlias and attributes to the list   
+    """
+    ri_kip_dict = {} # Container for bugAlias in a RI or eligible for KIP
+    for result in query_results:
+        if hasattr(result, 'alias'):
+            if hasattr(result, 'cf_parentbugid'):
+                bz_handle = bz_api.getbug(result.cf_parentbugid)
+                if (bz_handle.cf_releasenote == "Yes"):
+                    bug_alias = str(result.alias) # we are adding the childID,not the parentID
+                    subcase_count = bz_subcase_count(bz_handle.cf_subcase)
+                    if not bz_handle.cf_solution:                        
+                        age_count = bz_age_count(result.creation_ts)
+                        cmid_string = bz_cmid_string(bz_handle.blocked, bz_api)                                                
+                    else:
+                        age_count = 0
+                        cmid_string = ""                
+                    ri_kip_dict[bug_alias] = [result.version, subcase_count, age_count, result.bug_severity, cmid_string, bz_handle.cf_solution]
+                    
+            elif(result.cf_releasenote == "Yes"):
+                bug_alias = str(result.alias)
+                subcase_count = bz_subcase_count(result.cf_subcase)
+                if not result.cf_solution:
+                    age_count = bz_age_count(result.creation_ts)
+                    cmid_string = bz_cmid_string(result.blocked, bz_api)
+                else:
+                    age_count = 0
+                    cmid_string = ""            
+                ri_kip_dict[bug_alias] = [result.version, subcase_count, age_count, result.bug_severity, cmid_string, result.cf_solution]           
+
+    gen_excel_report(ri_kip_dict)
+
+if __name__ == '__main__':
+    sys.exit(main())
