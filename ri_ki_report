@@ -11,7 +11,6 @@ import bugzilla
 import xlsxwriter
 
 
-
 def bz_subcase_count(subcase_string):                       
     # count the # of subcases by spliting bugzilla's subcase list string
     if len(subcase_string.strip()):
@@ -109,9 +108,9 @@ def api_query(bz_api):
 
 def main():
     # api instanciation and Connection 
-    bz_user = '_svcactiveregressiontdf@f5.com'
-    bz_pass = 'R3gre551on'
-    bz_url = 'bugzilla.olympus.f5net.com'
+    bz_user = 'xxxx'
+    bz_pass = 'xxxx'
+    bz_url = 'xxxx'
     bz_api = bugzilla.Bugzilla(url=bz_url, sslverify=False)
     bz_api.login(bz_user, bz_pass)
     query_results = api_query(bz_api)
