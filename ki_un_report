@@ -1,0 +1,113 @@
+#!/usr/bin/env python
+
+from __future__ import print_function
+import sys
+import time
+import datetime
+import dateutil.parser
+
+import bugzilla
+
+import xlsxwriter
+
+
+def bz_subcase_count(subcase_string):                       
+    # count the # of subcases by spliting bugzilla's subcase list string
+    if len(subcase_string.strip()):
+        count = len(subcase_string.split(','))
+    else:
+        count = 0
+        
+    return count
+
+def bz_age_count(bug_date):
+    # This function takes the Bz creation date and return the number of days since creation   
+    bz_date = dateutil.parser.parse(str(bug_date))
+    bz_date = bz_date.date()
+    today = datetime.date.today()
+    diff_date = today - bz_date
+    count = str(diff_date).rsplit(',', 1)[0]
+    
+    return count
+    
+
+def gen_excel_report(ri_kip_dict):
+
+    # Writing the values of the Dict into an Excell file
+    ri_kip_report = "kip_un_report" + "_" + time.strftime("%Y%m%d-%H%M%S") + "." + "xlsx"
+ 
+    workbook = xlsxwriter.Workbook(ri_kip_report)
+    worksheet = workbook.add_worksheet()
+
+    # Writing the Header of the Excel file
+    worksheet.set_column('A:A', 12)
+    worksheet.set_column('B:B', 12)
+    worksheet.set_column('C:C', 12)
+    worksheet.set_column('D:D', 12)
+    worksheet.set_column('E:E', 12)
+    worksheet.set_column('F:F', 12)
+    bold = workbook.add_format({'bold': True})
+    worksheet.write('A1', 'CMID', bold)
+    worksheet.write('B1', 'CMID Age', bold)
+    worksheet.write('C1', 'Bug ID', bold)
+    worksheet.write('D1', 'Act. Version', bold)
+    worksheet.write('E1', 'Subcase Count', bold)
+    worksheet.write('F1', 'Bug Severity', bold)
+
+    row = 0
+    col = 0
+
+    for key in ri_kip_dict.keys():
+        row += 1
+        worksheet.write(row, col, key)
+        for item in ri_kip_dict[key]:
+            col += 1
+            worksheet.write(row, col, item)
+        col = 0    
+    workbook.close()
+
+def api_query(bz_api):
+    # this function setup the query     
+    
+    # Type of bz expected in the RN; with the intentional omission of 'Vuneraliblity'
+    type_list = ['Defect', 'Crash', 'Performance', 'Regression', 'Usability']
+    status_list = ['New', 'Accepted', 'Reopened', 'Verified', 'Test', 'Resolved', 'Not Verified' ]
+ 
+    # Query for all bz with version_list and type_list; ( Unfortunately include_fields does not seems to work) 
+    query_bz = {'product': 'Sol-New',
+        'cf_type': type_list,
+        'bug_status': status_list}
+
+    query_results = bz_api.query(query_bz)
+    
+    return query_results
+
+def main():
+    # api instanciation and Connection 
+    bz_user = xxxxxx
+    bz_pass = xxxxxx
+    bz_url = xxxxxx
+    bz_api = bugzilla.Bugzilla(url=bz_url, sslverify=False)
+    bz_api.login(bz_user, bz_pass)
+    query_results = api_query(bz_api)
+    """
+    For each result(cmid), only select 'KIP-Unrelease' then retrieve relevant info for the report   
+    -Some rare BZ like '438624' have many items in 'dependson'; so will use 'short_desc' instead to retreive the Bug ID
+    
+    """
+    kip_un_dict = {} # Container for CMIDs
+    for result in query_results:
+        keyword_string = str(result.keywords)
+        if 'KIP-unreleased' in keyword_string:
+            bug_alias = str(result.id)
+            print(bug_alias)
+            bug_id = result.short_desc[-6:]
+            bz_handle = bz_api.getbug(str(bug_id))
+            subcase_count = bz_subcase_count(bz_handle.cf_subcase)
+            age_count = bz_age_count(result.creation_ts)
+            kip_un_dict[bug_alias] = [age_count, bz_handle.alias, bz_handle.version, subcase_count, bz_handle.bug_severity]
+                  
+    gen_excel_report(kip_un_dict)
+
+if __name__ == '__main__':
+    sys.exit(main())
